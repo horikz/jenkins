@@ -1,57 +1,27 @@
-#!/usr/bin/env groovy
-def gv
-
 pipeline {
     agent any
-    
-    parameters {
-        choice(name: 'VERSION', choices: ['1.1.0', '1.2.0', '1.3.0'], description: '')
-        booleanParam(name: 'executeTests', defaultValue: true, description: '')
+    tools {
+        maven 'my-maven'
     }
-    
     stages {
+        stage("build jar") {
+            steps {
+                script {
+                    echo "Build"
+                    sh 'mvn package'
 
-         stage('init') {
-            steps {
-                script {
-                    gv = load "script.groovy"
                 }
             }
         }
-        stage('build') {
-            steps {
-                 script {
-                    gv.buildApp()
-                 }
-            }
-        }
-        stage('test') {
-            
-            when {
-                expression {
-                    params.executeTests   
-                }
-            }
+        
+        stage("build image") {
             steps {
                 script {
-                    gv.testApp()
-                }
-            }
-        }
-        stage('deploy') {
-            input {
-                message "Select the env to deply to"
-                ok "Done"
-                parameters {
-                    choice(name: 'ONE', choices: ['dev', 'staging', 'prod'], description: '')
-                    choice(name: 'TWO', choices: ['dev', 'staging', 'prod'], description: '')
-                }
-            }
-            steps {
-                script {
-                    gv.deployApp()
-                    echo "Deploying to ${ONE}"
-                    echo "Deploying to ${TWO}"
+                    echo "Build docker image"
+                      withCredentials([usernamePassword(credentialsId: 'docker-hub-repo', passwordVariable: 'PASS', usernameVariable: 'USER')])      
+                      sh 'docker build -t horikz/java-maven-app:jma-2.0 .'   
+                      sh "echo $PASS | docker login -u $USER --password-stdin"
+                      sh 'docker push horikz/java-maven-app:jma-2.0'
                 }
             }
         }
